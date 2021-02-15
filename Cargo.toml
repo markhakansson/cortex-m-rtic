@@ -82,6 +82,8 @@ trybuild = "1"
 # used for testing this crate; do not use in applications
 __v7 = ["dwt-systick-monotonic"]
 __min_r1_43 = []
+# for klee analysis
+klee-analysis = ["cortex-m-rtic-macros/klee-analysis"]
 
 [profile.release]
 codegen-units = 1

@@ -18,6 +18,7 @@ mod resources_struct;
 mod software_tasks;
 mod timer_queue;
 mod util;
+mod klee;
 
 // TODO document the syntax here or in `rtic-syntax`
 pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
@@ -85,15 +86,21 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
     ));
     
     #[cfg(feature = "klee-analysis")]    
-    mains.push(quote!(
-       mod rtic_ext {
-            use super::*;
-            #[no_mangle]
-            unsafe extern "C" fn #main() {
-
-            }
-       } 
-    ));
+    {
+        let klee_tasks = klee::codegen(app, analysis);
+        
+        mains.push(quote!(
+            /// KLEE module
+            mod rtic_ext {
+                use super::*;
+                use klee_sys::klee_make_symbolic;
+                #[no_mangle]
+                unsafe extern "C" fn #main() {
+                    #(#klee_tasks)*
+                }
+            } 
+        ));
+    }
 
     let (mod_app_resources, mod_resources) = resources::codegen(app, analysis, extra);
 
