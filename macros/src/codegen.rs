@@ -56,6 +56,7 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
     ));
 
     let main = util::suffixed("main");
+    #[cfg(not(feature = "klee-analysis"))]
     mains.push(quote!(
         #[doc(hidden)]
         mod rtic_ext {
@@ -73,6 +74,17 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
                 #call_idle
             }
         }
+    ));
+    
+    #[cfg(feature = "klee-analysis")]    
+    mains.push(quote!(
+       mod rtic_ext {
+            use super::*;
+            #[no_mangle]
+            unsafe extern "C" fn #main() {
+
+            }
+       } 
     ));
 
     let (mod_app_resources, mod_resources) = resources::codegen(app, analysis, extra);
