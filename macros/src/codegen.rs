@@ -82,7 +82,7 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
         let klee_tasks = klee::codegen(app, analysis);
         
         mains.push(quote!(
-            /// KLEE module
+            /// KLEE test harness 
             mod rtic_ext {
                 use super::*;
                 use klee_sys::klee_make_symbolic;
