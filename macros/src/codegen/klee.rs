@@ -29,7 +29,7 @@ pub fn codegen(app: &App, analysis: &Analysis) -> Vec<TokenStream2> {
     for (name, task) in &app.hardware_tasks {
         let mut resources = vec![];
         for (name, _access) in &task.args.resources {
-            let mangled_name = util::mangle_ident(&name);
+            let mangled_name = util::mark_internal_ident(&name);
             //let name_as_str: String = app_name.to_string() + "::resources::" + &name.to_string();
             let name_as_str: String = mangled_name.to_string();
 
@@ -49,7 +49,7 @@ pub fn codegen(app: &App, analysis: &Analysis) -> Vec<TokenStream2> {
     for (name, task) in &app.software_tasks{
         let mut resources = vec![];
         for (name, _access) in &task.args.resources {
-            let mangled_name = util::mangle_ident(&name);
+            let mangled_name = util::mark_internal_ident(&name);
             //let name_as_str: String = app_name.to_string() + "::resources::" + &name.to_string();
             let name_as_str: String = mangled_name.to_string();
 
