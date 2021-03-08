@@ -26,3 +26,4 @@ rtic-syntax = "0.5.0-alpha.1"
 
 [features]
 klee-analysis = []
+klee-replay = []
