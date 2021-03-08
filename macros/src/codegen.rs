@@ -24,6 +24,8 @@ mod klee;
 #[cfg(feature = "klee-replay")]
 mod klee_replay;
 
+#[cfg(not(feature = "klee-analysis"))]
+#[cfg(not(feature = "klee-replay"))]
 // TODO document the syntax here or in `rtic-syntax`
 pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
     let mut mod_app = vec![];
@@ -61,8 +63,6 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
     ));
 
     let main = util::suffixed("main");
-    #[cfg(not(feature = "klee-analysis"))]
-    #[cfg(not(feature = "klee-replay"))]
     mains.push(quote!(
         #[doc(hidden)]
         mod rtic_ext {
@@ -89,14 +89,171 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
             }
         }
     ));
+
+    let (mod_app_resources, mod_resources) = resources::codegen(app, analysis, extra);
+
+    let (mod_app_hardware_tasks, root_hardware_tasks, user_hardware_tasks) =
+        hardware_tasks::codegen(app, analysis, extra);
+
+    let (mod_app_software_tasks, root_software_tasks, user_software_tasks) =
+        software_tasks::codegen(app, analysis, extra);
+
+    let mod_app_dispatchers = dispatchers::codegen(app, analysis, extra);
+    let mod_app_timer_queue = timer_queue::codegen(app, analysis, extra);
+    let user_imports = &app.user_imports;
+    let user_code = &app.user_code;
+    let name = &app.name;
+    let device = &extra.device;
+    let app_name = &app.name;
+    let app_path = quote! {crate::#app_name};
+
+    let monotonic_parts: Vec<_> = app
+        .monotonics
+        .iter()
+        .map(|(_, monotonic)| {
+            let name = &monotonic.ident;
+            let name_str = &name.to_string();
+            let ty = &monotonic.ty;
+            let ident = util::monotonic_ident(&name_str);
+            let ident = util::mark_internal_ident(&ident);
+            let panic_str = &format!(
+                "Use of monotonic '{}' before it was passed to the runtime",
+                name_str
+            );
+            let doc = &format!(
+                "This module holds the static implementation for `{}::now()`",
+                name_str
+            );
+            let user_imports = &app.user_imports;
+
+            quote! {
+                pub use rtic::Monotonic as _;
+
+                #[doc = #doc]
+                #[allow(non_snake_case)]
+                pub mod #name {
+                    #(
+                        #[allow(unused_imports)]
+                        #user_imports
+                    )*
+
+                    /// Read the current time from this monotonic
+                    pub fn now() -> rtic::time::Instant<#ty> {
+                        rtic::export::interrupt::free(|_| {
+                            use rtic::Monotonic as _;
+                            use rtic::time::Clock as _;
+                            if let Some(m) = unsafe{ #app_path::#ident.as_ref() } {
+                                if let Ok(v) = m.try_now() {
+                                    v
+                                } else {
+                                    unreachable!("Your monotonic is not infallible!")
+                                }
+                            } else {
+                                panic!(#panic_str);
+                            }
+                        })
+                    }
+                }
+            }
+        })
+        .collect();
+
+    let rt_err = util::rt_err_ident();
+
+    quote!(
+        /// The RTIC application module
+        pub mod #name {
+            /// Set as a global variable in order to not optimize out the replay harness
+            static mut __klee_task_id: u32 = 0;
+
+            /// Always include the device crate which contains the vector table
+            use #device as #rt_err;
+
+            #(#monotonic_parts)*
+
+            #(#user_imports)*
+
+            /// User code from within the module
+            #(#user_code)*
+            /// User code end
+
+            #(#user)*
+
+            #(#user_hardware_tasks)*
+
+            #(#user_software_tasks)*
+
+            #(#root)*
+
+            #mod_resources
+
+            #(#root_hardware_tasks)*
+
+            #(#root_software_tasks)*
+
+            /// app module
+            #(#mod_app)*
+
+            #(#mod_app_resources)*
+
+            #(#mod_app_hardware_tasks)*
+
+            #(#mod_app_software_tasks)*
+
+            #(#mod_app_dispatchers)*
+
+            #(#mod_app_timer_queue)*
+
+            #(#mains)*
+        }
+    )
+}
+
+#[cfg(any(feature = "klee-analysis", feature = "klee-replay"))]
+pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
+    let mut mod_app = vec![];
+    let mut mains = vec![];
+    let mut root = vec![];
+    let mut user = vec![];
+
+    // Generate the `main` function
+    #[cfg(feature = "klee-replay")]
+    let assertion_stmts = assertions::codegen(app, analysis);
+
+    let _pre_init_stmts = pre_init::codegen(app, analysis, extra);
+
+    let (mod_app_init, root_init, user_init, _call_init) = init::codegen(app, analysis, extra);
+
+    let _post_init_stmts = post_init::codegen(app, analysis);
+
+    let (mod_app_idle, root_idle, user_idle, _call_idle) = idle::codegen(app, analysis, extra);
+
+    user.push(quote!(
+        #user_init
+
+        #user_idle
+    ));
+
+    root.push(quote!(
+        #(#root_init)*
+
+        #(#root_idle)*
+    ));
+
+    mod_app.push(quote!(
+        #mod_app_init
+
+        #mod_app_idle
+    ));
+
+    let main = util::suffixed("main");
     
     #[cfg(feature = "klee-analysis")]   
-    #[cfg(not(feature = "klee-replay"))] 
     {
         let klee_tasks = klee::codegen(app, analysis);
         
         mains.push(quote!(
-            /// KLEE test harness 
+            /// KLEE test harness
             mod rtic_ext {
                 use super::*;
                 use klee_sys::klee_make_symbolic;
@@ -108,7 +265,6 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
         ));
     }
 
-    #[cfg(not(feature = "klee-analysis"))]
     #[cfg(feature = "klee-replay")]
     {
         let replay_tasks = klee_replay::codegen(app, analysis);
