@@ -21,7 +21,7 @@ pub fn codegen(app: &App, analysis: &Analysis) -> Vec<TokenStream2> {
             let mut core: rtic::export::Peripherals =
                 rtic::export::Peripherals::steal().into();
             #app_path::#init_name(#init_name::Context::new(core.into()));
-        },
+        }
     ));
     task_number += 1;
     
