@@ -18,7 +18,11 @@ mod resources_struct;
 mod software_tasks;
 mod timer_queue;
 mod util;
+
+#[cfg(feature = "klee-analysis")]   
 mod klee;
+#[cfg(feature = "klee-replay")]
+mod klee_replay;
 
 // TODO document the syntax here or in `rtic-syntax`
 pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
@@ -58,6 +62,7 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
 
     let main = util::suffixed("main");
     #[cfg(not(feature = "klee-analysis"))]
+    #[cfg(not(feature = "klee-replay"))]
     mains.push(quote!(
         #[doc(hidden)]
         mod rtic_ext {
@@ -85,7 +90,8 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
         }
     ));
     
-    #[cfg(feature = "klee-analysis")]    
+    #[cfg(feature = "klee-analysis")]   
+    #[cfg(not(feature = "klee-replay"))] 
     {
         let klee_tasks = klee::codegen(app, analysis);
         
@@ -100,6 +106,29 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
                 }
             } 
         ));
+    }
+
+    #[cfg(not(feature = "klee-analysis"))]
+    #[cfg(feature = "klee-replay")]
+    {
+        let replay_tasks = klee_replay::codegen(app, analysis);
+
+        mains.push(quote!(
+            /// KLEE replay harness
+            mod rtic_ext {
+                use super::*;
+                #[no_mangle]
+                unsafe extern "C" fn #main() {
+                    #(#assertion_stmts)*
+                    rtic::export::interrupt::disable();
+
+                    asm::bkpt();
+                    #(#replay_tasks)*
+
+                    panic!("Replay finished");
+                }
+            }
+        ))
     }
 
     let (mod_app_resources, mod_resources) = resources::codegen(app, analysis, extra);
@@ -185,6 +214,9 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
     quote!(
         /// The RTIC application module
         pub mod #name {
+            /// Set as a global variable in order to not optimize out the replay harness
+            static mut __klee_task_id: u32 = 0;
+
             /// Always include the device crate which contains the vector table
             use #device as #rt_err;
 
