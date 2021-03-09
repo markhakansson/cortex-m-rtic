@@ -26,10 +26,14 @@ pub fn codegen(app: &App, _analysis: &Analysis) -> Vec<TokenStream2> {
     task_number += 1;
     
     // Fetch all tasks for KLEE to match
-    for (name, _task) in &app.hardware_tasks {
+    for (name, task) in &app.hardware_tasks {
+        let symbol = task.args.binds.clone();
+        let doc = format!("{}", name);
+
         task_list.push(quote!(
             #task_number => {
-                #app_path::#name(#name::Context::new(&rtic::export::Priority::new(1)));
+                #[doc = #doc]
+                #symbol();
             }
         ));
         task_number += 1;

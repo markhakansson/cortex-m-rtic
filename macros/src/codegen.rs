@@ -269,11 +269,14 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
                 unsafe extern "C" fn #main() {
                     #(#assertion_stmts)*
                     rtic::export::interrupt::disable();
+                    
+                    loop {
+                        /// 255: Replay start
+                        asm!("bkpt 255");
+                        #(#replay_tasks)*
 
-                    asm::bkpt();
-                    #(#replay_tasks)*
-
-                    panic!("Replay finished");
+                        panic!("Replay finished");
+                    }
                 }
             }
         ))

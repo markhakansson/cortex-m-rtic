@@ -1,4 +1,5 @@
 // #![deny(warnings)]
+//#![cfg_attr(feature = "klee-replay", feature(asm))]
 
 extern crate proc_macro;
 
@@ -16,7 +17,6 @@ mod tests;
 /// Attribute used to declare a RTIC application
 ///
 /// For user documentation see the [RTIC book](https://rtic.rs)
-
 #[proc_macro_attribute]
 pub fn app(args: TokenStream, input: TokenStream) -> TokenStream {
     let mut settings = Settings::default();
