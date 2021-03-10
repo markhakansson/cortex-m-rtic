@@ -147,7 +147,7 @@ pub fn codegen(
             #[no_mangle]
             unsafe fn #symbol() {
                 // START TASK HW BKPT HERE
-                asm!("bkpt 2");
+                asm::bkpt_imm(2);
 
                 const PRIORITY: u8 = #priority;
 
@@ -158,7 +158,7 @@ pub fn codegen(
                     )
                 });
                 // END TASK HW BKPT HERE
-                asm!("bkpt 253");
+                asm::bkpt_imm(253);
             }
         ));
 
