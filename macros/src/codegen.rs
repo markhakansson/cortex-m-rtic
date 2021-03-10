@@ -209,10 +209,9 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
     let mut user = vec![];
 
     // Generate the `main` function
-    #[cfg(feature = "klee-replay")]
     let assertion_stmts = assertions::codegen(app, analysis);
 
-    let _pre_init_stmts = pre_init::codegen(app, analysis, extra);
+    let pre_init_stmts = pre_init::codegen(app, analysis, extra);
 
     let (mod_app_init, root_init, user_init, _call_init) = init::codegen(app, analysis, extra);
 
@@ -251,6 +250,7 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
                 use klee_sys::klee_make_symbolic;
                 #[no_mangle]
                 unsafe extern "C" fn #main() {
+                    #(#assertion_stmts)*
                     #(#klee_tasks)*
                 }
             } 
@@ -272,7 +272,7 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
                     
                     loop {
                         /// 255: Replay start
-                        asm!("bkpt 255");
+                        asm::bkpt_imm(255);
                         #(#replay_tasks)*
 
                         panic!("Replay finished");

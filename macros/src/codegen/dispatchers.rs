@@ -261,7 +261,7 @@ pub fn codegen(app: &App, analysis: &Analysis, _extra: &Extra) -> Vec<TokenStrea
             #(#attribute)*
             unsafe fn #interrupt() {
                 // START TASK DISPATCH BKPT HERE
-                asm!("bkpt 1");
+                asm::bkpt_imm(1);
                 /// The priority of this interrupt handler
                 const PRIORITY: u8 = #level;
 
@@ -269,7 +269,7 @@ pub fn codegen(app: &App, analysis: &Analysis, _extra: &Extra) -> Vec<TokenStrea
                     #(#stmts)*
                 });
                 // END TASK DISPATCH BKPT HERE
-                asm!("bkpt 254");
+                asm::bkpt_imm(254);
             }
         ));
     }

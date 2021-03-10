@@ -17,11 +17,11 @@ pub fn codegen(app: &App, analysis: &Analysis) -> Vec<TokenStream2> {
     // Add init function
     let init_name = &app.inits.first().unwrap().name;
     task_list.push(quote!(
-        #task_number => {
-            let mut core: rtic::export::Peripherals =
-                rtic::export::Peripherals::steal().into();
-            #app_path::#init_name(#init_name::Context::new(core.into()));
-        }
+       #task_number => {
+           let mut core: rtic::export::Peripherals =
+               rtic::export::Peripherals::steal().into();
+           #app_path::#init_name(#init_name::Context::new(core.into()));
+       }
     ));
     task_number += 1;
     
