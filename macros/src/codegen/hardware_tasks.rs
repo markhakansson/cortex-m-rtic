@@ -144,7 +144,7 @@ pub fn codegen(
             #[allow(non_snake_case)]
             #[no_mangle]
             unsafe fn #symbol() {
-                // START TASK HW BKPT HERE
+                /// Start task section (hardware)
                 asm::bkpt_imm(2);
 
                 const PRIORITY: u8 = #priority;
@@ -155,7 +155,7 @@ pub fn codegen(
                         #name::Context::new(&rtic::export::Priority::new(PRIORITY))
                     )
                 });
-                // END TASK HW BKPT HERE
+                /// End task section (hardware)
                 asm::bkpt_imm(253);
             }
         ));
