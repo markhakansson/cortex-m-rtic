@@ -31,6 +31,7 @@ pub fn fq_ident(task: &Ident) -> Ident {
 }
 
 /// Generates a `Mutex` implementation
+#[cfg(not(feature = "klee-replay"))]
 pub fn impl_mutex(
     extra: &Extra,
     cfgs: &[Attribute],
@@ -66,6 +67,53 @@ pub fn impl_mutex(
                         f,
                     )
                 }
+            }
+        }
+    )
+}
+
+/// Generates a `Mutex` implementation
+#[cfg(feature = "klee-replay")]
+pub fn impl_mutex(
+    extra: &Extra,
+    cfgs: &[Attribute],
+    resources_prefix: bool,
+    name: &Ident,
+    ty: TokenStream2,
+    ceiling: u8,
+    ptr: TokenStream2,
+) -> TokenStream2 {
+    let (path, priority) = if resources_prefix {
+        (quote!(resources::#name), quote!(self.priority()))
+    } else {
+        (quote!(#name), quote!(self.priority))
+    };
+
+    let device = &extra.device;
+    quote!(
+        #(#cfgs)*
+        impl<'a> rtic::Mutex for #path<'a> {
+            type T = #ty;
+
+            #[inline(always)]
+            fn lock<RTIC_INTERNAL_R>(&mut self, f: impl FnOnce(&mut #ty) -> RTIC_INTERNAL_R) -> RTIC_INTERNAL_R {
+                /// Start resource lock
+                asm::bkpt_imm(3);
+                /// Priority ceiling
+                const CEILING: u8 = #ceiling;
+
+                unsafe {
+                    rtic::export::lock(
+                        #ptr,
+                        #priority,
+                        CEILING,
+                        #device::NVIC_PRIO_BITS,
+                        f,
+                    )
+                }
+                
+                /// Start resource lock
+                asm::bkpt_imm(252);
             }
         }
     )
