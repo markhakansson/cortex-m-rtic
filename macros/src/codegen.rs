@@ -163,9 +163,6 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
     quote!(
         /// The RTIC application module
         pub mod #name {
-            /// Set as a global variable in order to not optimize out the replay harness
-            static mut __klee_task_id: u32 = 0;
-
             /// Always include the device crate which contains the vector table
             use #device as #rt_err;
 
@@ -221,9 +218,9 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
 
     let pre_init_stmts = pre_init::codegen(app, analysis, extra);
 
-    let (mod_app_init, root_init, user_init, _call_init) = init::codegen(app, analysis, extra);
+    let (mod_app_init, root_init, user_init, call_init) = init::codegen(app, analysis, extra);
 
-    let _post_init_stmts = post_init::codegen(app, analysis);
+    let post_init_stmts = post_init::codegen(app, analysis);
 
     let (mod_app_idle, root_idle, user_idle, _call_idle) = idle::codegen(app, analysis, extra);
 
@@ -255,9 +252,31 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
             /// KLEE test harness
             mod rtic_ext {
                 use super::*;
-                use klee_sys::klee_make_symbolic;
+                use core::any::{Any,TypeId};
+                use klee_sys::klee_make_symbolic;             
+
+                fn late_type_supported<T: ?Sized + Any>(ty: &T, supported: &[TypeId]) -> bool {
+                    let type_id = TypeId::of::<T>();
+
+                    for supported_type in supported.iter() {
+                        if &type_id == supported_type {
+                            return true
+                        }
+                    }
+                    false
+                }
+
                 #[no_mangle]
                 unsafe extern "C" fn #main() {
+                    let supported_late_types = [
+                        TypeId::of::<core::mem::MaybeUninit<u8>>(),
+                        TypeId::of::<core::mem::MaybeUninit<u16>>(),
+                        TypeId::of::<core::mem::MaybeUninit<u32>>(),
+                        TypeId::of::<core::mem::MaybeUninit<i8>>(),
+                        TypeId::of::<core::mem::MaybeUninit<i16>>(),
+                        TypeId::of::<core::mem::MaybeUninit<i32>>(),
+                        TypeId::of::<core::mem::MaybeUninit<char>>(),
+                    ];
                     #(#assertion_stmts)*
                     #(#klee_tasks)*
                 }
@@ -270,20 +289,27 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
         let replay_tasks = klee_replay::codegen(app, analysis);
 
         mains.push(quote!(
+            /// Might clash with user import
+            use cortex_m::asm;
             /// KLEE replay harness
             mod rtic_ext {
                 use super::*;
                 #[no_mangle]
-                unsafe extern "C" fn #main() {
+                unsafe extern "C" fn #main() -> ! {
                     #(#assertion_stmts)*
-                    rtic::export::interrupt::disable();
-                    
+
+                    #(#pre_init_stmts)*
+
+                    // Enable trace
+                    core.DCB.enable_trace();
+                    core.DWT.enable_cycle_counter();
+
                     loop {
+                        // Reset CYCCNT after each loop 
+                        core.DWT.cyccnt.write(0);
                         /// 255: Replay start
                         asm::bkpt_imm(255);
                         #(#replay_tasks)*
-
-                        panic!("Replay finished");
                     }
                 }
             }
@@ -373,9 +399,6 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
     quote!(
         /// The RTIC application module
         pub mod #name {
-            /// Set as a global variable in order to not optimize out the replay harness
-            static mut __klee_task_id: u32 = 0;
-
             /// Always include the device crate which contains the vector table
             use #device as #rt_err;
 
@@ -414,6 +437,8 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
 
             #(#mod_app_timer_queue)*
 
+            /// Set as a global variable in order to not optimize out the replay harness
+            static mut __klee_task_id: u8 = 0;
             #(#mains)*
         }
     )
