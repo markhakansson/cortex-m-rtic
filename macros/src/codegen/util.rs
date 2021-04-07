@@ -102,7 +102,7 @@ pub fn impl_mutex(
                 /// Priority ceiling
                 const CEILING: u8 = #ceiling;
 
-                unsafe {
+                let r = unsafe {
                     rtic::export::lock(
                         #ptr,
                         #priority,
@@ -110,10 +110,11 @@ pub fn impl_mutex(
                         #device::NVIC_PRIO_BITS,
                         f,
                     )
-                }
+                };
                 
-                /// Start resource lock
+                /// End resource lock
                 asm::bkpt_imm(252);
+                r
             }
         }
     )

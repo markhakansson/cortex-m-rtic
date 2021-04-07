@@ -4,7 +4,6 @@ use rtic_syntax::ast::App;
 
 use crate::{analyze::Analysis, check::Extra, codegen::util};
 
-#[cfg(not(feature = "klee-analysis"))]
 #[cfg(not(feature = "klee-replay"))]
 /// Generates task dispatchers
 pub fn codegen(app: &App, analysis: &Analysis, _extra: &Extra) -> Vec<TokenStream2> {
@@ -130,7 +129,7 @@ pub fn codegen(app: &App, analysis: &Analysis, _extra: &Extra) -> Vec<TokenStrea
     items
 }
 
-#[cfg(any(feature = "klee-analysis", feature = "klee-replay"))]
+#[cfg(feature = "klee-replay")]
 pub fn codegen(app: &App, analysis: &Analysis, _extra: &Extra) -> Vec<TokenStream2> {
     let mut items = vec![];
 
@@ -236,22 +235,6 @@ pub fn codegen(app: &App, analysis: &Analysis, _extra: &Extra) -> Vec<TokenStrea
         let doc = format!("Interrupt handler to dispatch tasks at priority {}", level);
         let interrupt = util::suffixed(&interrupts[&level].0.to_string());
         let attribute = &interrupts[&level].1.attrs;
-
-        #[cfg(feature = "klee-analysis")]
-        items.push(quote!(
-            #[allow(non_snake_case)]
-            #[doc = #doc]
-            #[no_mangle]
-            #(#attribute)*
-            unsafe fn #interrupt() {
-                /// The priority of this interrupt handler
-                const PRIORITY: u8 = #level;
-
-                rtic::export::run(PRIORITY, || {
-                    #(#stmts)*
-                });
-            }
-        ));
 
         #[cfg(feature = "klee-replay")]
         items.push(quote!(
