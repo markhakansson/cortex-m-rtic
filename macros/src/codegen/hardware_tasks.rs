@@ -202,7 +202,9 @@ pub fn codegen(
                 fn #name(#(#locals_pat,)* #context: #name::Context) {
                     use rtic::Mutex as _;
                     use rtic::mutex_prelude::*;
-
+                    
+                    /// Mark that we're inside a scope
+                    asm::bkpt_imm(1);
                     #(#stmts)*
                 }
             ));

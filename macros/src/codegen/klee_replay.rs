@@ -12,18 +12,18 @@ pub fn codegen(app: &App, _analysis: &Analysis) -> Vec<TokenStream2> {
     let mut test_harness = vec![];
     let mut task_list = vec![];
     let mut match_stmts = vec![];
-    let mut task_number: u32= 0;
+    let mut task_number: u8 = 0;
     
     // Add init function
-    let init_name = &app.inits.first().unwrap().name;
-    task_list.push(quote!(
-        #task_number => {
-            let mut core: rtic::export::Peripherals =
-                rtic::export::Peripherals::steal().into();
-            #app_path::#init_name(#init_name::Context::new(core.into()));
-        },
-    ));
-    task_number += 1;
+    // let init_name = &app.inits.first().unwrap().name;
+    // task_list.push(quote!(
+    //     #task_number => {
+    //         let mut core: rtic::export::Peripherals =
+    //             rtic::export::Peripherals::steal().into();
+    //         #app_path::#init_name(#init_name::Context::new(core.into()));
+    //     },
+    // ));
+    // task_number += 1;
     
     // Fetch all tasks for KLEE to match
     for (name, task) in &app.hardware_tasks {
