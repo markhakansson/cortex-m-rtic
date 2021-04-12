@@ -245,7 +245,7 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
             mod rtic_ext {
                 use super::*;
                 use core::any::{Any,TypeId};
-                use klee_sys::klee_make_symbolic;             
+                use klee_rs::klee_make_symbolic;             
 
                 fn late_type_supported<T: ?Sized + Any>(ty: &T, supported: &[TypeId]) -> bool {
                     let type_id = TypeId::of::<T>();

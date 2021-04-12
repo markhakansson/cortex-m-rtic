@@ -1,6 +1,4 @@
 // #![deny(warnings)]
-//#![cfg_attr(feature = "klee-replay", feature(asm))]
-
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
