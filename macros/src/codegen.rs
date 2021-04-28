@@ -281,10 +281,9 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
         let replay_tasks = klee_replay::codegen(app, analysis);
 
         mains.push(quote!(
-            /// Might clash with user import
-            use cortex_m::asm;
             /// KLEE replay harness
             mod rtic_ext {
+                use cortex_m::asm;
                 use super::*;
                 #[no_mangle]
                 unsafe extern "C" fn #main() -> ! {
