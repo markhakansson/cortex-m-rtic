@@ -40,12 +40,12 @@ pub fn codegen(app: &App, analysis: &Analysis) -> Vec<TokenStream2> {
                 resources.push(quote!(
                     /// Check if LateResource is supported
                     if late_type_supported(&#mangled_name, &supported_late_types) {
-                        klee_make_symbolic(&mut #mangled_name, #name_as_str);
+                        klee_make_symbolic(&mut #mangled_name.get_mut_unchecked(), #name_as_str);
                     }
                 ));
             } else {
                 resources.push(quote!(
-                    klee_make_symbolic(&mut #mangled_name, #name_as_str);
+                    klee_make_symbolic(&mut #mangled_name.get_mut_unchecked(), #name_as_str);
                 ));
             }
         }
@@ -66,7 +66,7 @@ pub fn codegen(app: &App, analysis: &Analysis) -> Vec<TokenStream2> {
 
             // Check if type is in supported types
             resources.push(quote!(
-                klee_make_symbolic(&mut #mangled_name, #name_as_str);
+                klee_make_symbolic(&mut #mangled_name.get_mut_unchecked(), #name_as_str);
             ));
         }
         task_list.push(quote!(
