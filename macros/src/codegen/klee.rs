@@ -39,7 +39,7 @@ pub fn codegen(app: &App, analysis: &Analysis) -> Vec<TokenStream2> {
             if app.late_resources.contains_key(name) {
                 resources.push(quote!(
                     /// Check if LateResource is supported
-                    if late_type_supported(&#mangled_name.get_unchecked(), &supported_late_types) {
+                    if late_type_supported(#mangled_name.get_unchecked(), &supported_late_types) {
                         klee_make_symbolic(&mut #mangled_name.get_mut_unchecked(), #name_as_str);
                     }
                 ));
