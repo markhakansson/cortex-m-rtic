@@ -126,8 +126,14 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
             );
             let user_imports = &app.user_imports;
 
+            let default_monotonic = if monotonic.args.default {
+                quote!(pub use #name::now;)
+            } else {
+                quote!()
+            };
+
             quote! {
-                pub use rtic::Monotonic as _;
+                #default_monotonic
 
                 #[doc = #doc]
                 #[allow(non_snake_case)]
@@ -218,9 +224,9 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
 
     let pre_init_stmts = pre_init::codegen(app, analysis, extra);
 
-    let (mod_app_init, root_init, user_init, call_init) = init::codegen(app, analysis, extra);
+    let (mod_app_init, root_init, user_init, _call_init) = init::codegen(app, analysis, extra);
 
-    let post_init_stmts = post_init::codegen(app, analysis);
+    let _post_init_stmts = post_init::codegen(app, analysis);
 
     let (mod_app_idle, root_idle, user_idle, _call_idle) = idle::codegen(app, analysis, extra);
 
@@ -246,7 +252,7 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
     
     #[cfg(feature = "klee-analysis")]   
     {
-        let klee_tasks = klee::codegen(app, analysis);
+        let klee_tasks = klee::codegen(app);
         
         mains.push(quote!(
             /// KLEE test harness
@@ -401,7 +407,7 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
             /// Always include the device crate which contains the vector table
             use #device as #rt_err;
 
-            #monotonics
+            #(#monotonic_parts)*
 
             #(#user_imports)*
 
