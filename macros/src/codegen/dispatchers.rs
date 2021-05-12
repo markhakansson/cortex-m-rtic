@@ -4,10 +4,11 @@ use rtic_syntax::ast::App;
 
 use crate::{analyze::Analysis, check::Extra, codegen::util};
 
-#[cfg(not(feature = "klee-replay"))]
+#[cfg(not(any(feature = "klee-replay")))]
 /// Generates task dispatchers
 pub fn codegen(app: &App, analysis: &Analysis, _extra: &Extra) -> Vec<TokenStream2> {
     let mut items = vec![];
+
     let interrupts = &analysis.interrupts;
 
     for (&level, channel) in &analysis.channels {
@@ -26,6 +27,7 @@ pub fn codegen(app: &App, analysis: &Analysis, _extra: &Extra) -> Vec<TokenStrea
             })
             .collect::<Vec<_>>();
 
+        // For future use
         // let doc = format!(
         //     "Software tasks to be dispatched at priority level {}",
         //     level,
@@ -53,13 +55,14 @@ pub fn codegen(app: &App, analysis: &Analysis, _extra: &Extra) -> Vec<TokenStrea
             )
         };
 
+        // For future use
         // let doc = format!(
         //     "Queue of tasks ready to be dispatched at priority level {}",
         //     level
         // );
         items.push(quote!(
             #[doc(hidden)]
-            static mut #rq: #rq_ty = #rq_expr;
+            static #rq: rtic::RacyCell<#rq_ty> = rtic::RacyCell::new(#rq_expr);
         ));
 
         let arms = channel
@@ -86,8 +89,12 @@ pub fn codegen(app: &App, analysis: &Analysis, _extra: &Extra) -> Vec<TokenStrea
                     #(#cfgs)*
                     #t::#name => {
                         let #tupled =
-                            #inputs.get_unchecked(usize::from(index)).as_ptr().read();
-                        #fq.split().0.enqueue_unchecked(index);
+                            #inputs
+                            .get_unchecked()
+                            .get_unchecked(usize::from(index))
+                            .as_ptr()
+                            .read();
+                        #fq.get_mut_unchecked().split().0.enqueue_unchecked(index);
                         let priority = &rtic::export::Priority::new(PRIORITY);
                         #app_path::#name(
                             #locals_new
@@ -100,7 +107,7 @@ pub fn codegen(app: &App, analysis: &Analysis, _extra: &Extra) -> Vec<TokenStrea
             .collect::<Vec<_>>();
 
         stmts.push(quote!(
-            while let Some((task, index)) = #rq.split().1.dequeue() {
+            while let Some((task, index)) = #rq.get_mut_unchecked().split().1.dequeue() {
                 match task {
                     #(#arms)*
                 }
@@ -242,23 +249,24 @@ pub fn codegen(app: &App, analysis: &Analysis, _extra: &Extra) -> Vec<TokenStrea
         let interrupt = util::suffixed(&interrupts[&level].0.to_string());
         let attribute = &interrupts[&level].1.attrs;
 
-        #[cfg(feature = "klee-replay")]
         items.push(quote!(
             #[allow(non_snake_case)]
             #[doc = #doc]
             #[no_mangle]
             #(#attribute)*
             unsafe fn #interrupt() {
-                // START TASK DISPATCH BKPT HERE
-                asm::bkpt_imm(1);
+                /// Start task section (software)
+                asm::bkpt_imm(4);
+
                 /// The priority of this interrupt handler
                 const PRIORITY: u8 = #level;
 
                 rtic::export::run(PRIORITY, || {
                     #(#stmts)*
                 });
-                // END TASK DISPATCH BKPT HERE
-                asm::bkpt_imm(254);
+
+                /// End task section (software)
+                asm::bkpt_imm(251);
             }
         ));
     }
