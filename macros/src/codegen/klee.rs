@@ -31,7 +31,6 @@ pub fn codegen(app: &App) -> Vec<TokenStream2> {
         for (name, _access) in &task.args.resources {            
             let mangled_name = util::mark_internal_ident(&name);
             let name_as_str: String = mangled_name.to_string();
-            //let (res, _expr) = app.resource(name).expect("UNREACHABLE");
 
             if app.late_resources.contains_key(name) {
                 resources.push(quote!(
@@ -57,18 +56,26 @@ pub fn codegen(app: &App) -> Vec<TokenStream2> {
     
     for (name, task) in &app.software_tasks{
         let mut resources = vec![];
-        for (name, _access) in &task.args.resources {
+        for (name, _access) in &task.args.resources {            
             let mangled_name = util::mark_internal_ident(&name);
             let name_as_str: String = mangled_name.to_string();
 
-            // Check if type is in supported types
-            resources.push(quote!(
-                klee_make_symbolic(#mangled_name.get_mut_unchecked(), #name_as_str);
-            ));
+            if app.late_resources.contains_key(name) {
+                resources.push(quote!(
+                    /// Check if LateResource is supported
+                    if late_type_supported(#mangled_name.get_unchecked(), &supported_late_types) {
+                        klee_make_symbolic(#mangled_name.get_mut_unchecked(), #name_as_str);
+                    }
+                ));
+            } else {
+                resources.push(quote!(
+                    klee_make_symbolic(#mangled_name.get_mut_unchecked(), #name_as_str);
+                ));
+            }
         }
         task_list.push(quote!(
             #task_number => {
-                #(#resources)*   
+                #(#resources)*
                 #app_path::#name(#name::Context::new(&rtic::export::Priority::new(1)));
             }
         ));
