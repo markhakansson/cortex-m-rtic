@@ -240,9 +240,9 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
 
     let pre_init_stmts = pre_init::codegen(app, analysis, extra);
 
-    let (mod_app_init, root_init, user_init, _call_init) = init::codegen(app, analysis, extra);
+    let (mod_app_init, root_init, user_init, call_init) = init::codegen(app, analysis, extra);
 
-    let _post_init_stmts = post_init::codegen(app, analysis);
+    let post_init_stmts = post_init::codegen(app, analysis);
 
     let (mod_app_idle, root_idle, user_idle, _call_idle) = idle::codegen(app, analysis, extra);
 
@@ -320,14 +320,27 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
                     #(#assertion_stmts)*
 
                     #(#pre_init_stmts)*
-
-                    // Enable trace
+                    
+                    /// Enable trace
                     core.DCB.enable_trace();
                     core.DWT.enable_cycle_counter();
+                    core.DWT.cyccnt.write(0);
+
+                    #[inline(never)]
+                    fn __rtic_init_resources<F>(f: F) where F: FnOnce() {
+                        f();
+                    }
+    
+                    // Wrap late_init_stmts in a function to ensure that stack space is reclaimed.
+                    __rtic_init_resources(||{
+                        #call_init
+    
+                        #(#post_init_stmts)*
+                    });
 
                     loop {
                         // Reset CYCCNT after each loop 
-                        core.DWT.cyccnt.write(0);
+                        //core.DWT.cyccnt.write(0);
                         /// 255: Replay start
                         asm::bkpt_imm(255);
                         #(#replay_tasks)*
