@@ -4,7 +4,7 @@ use rtic_syntax::{ast::App, Context};
 
 use crate::{analyze::Analysis, check::Extra, codegen::util};
 
-#[cfg(not(feature = "klee-analysis"))]
+#[cfg(not(any(feature = "klee-analysis", feature = "klee-replay")))]
 pub fn codegen(
     ctxt: Context,
     resources_tick: bool,
@@ -463,7 +463,7 @@ pub fn codegen(
     }
 }
 
-#[cfg(feature = "klee-analysis")]
+#[cfg(any(feature = "klee-analysis", feature = "klee-replay"))]
 pub fn codegen(
     ctxt: Context,
     resources_tick: bool,
@@ -694,17 +694,36 @@ pub fn codegen(
             .expect("RTIC-ICE: interrupt identifer not found")
             .0;
 
-        // Spawn caller
-        items.push(quote!(
+        /// Change spawn for klee-analysis
+        #[cfg(feature = "klee-analysis")]
+        {
+            // Spawn caller
+            items.push(quote!(
 
-        #(#all_task_imports)*
+            #(#all_task_imports)*
 
-        #(#cfgs)*
-        /// Spawns the task directly
-        pub fn spawn(#(#args,)*) -> Result<(), #ty> {
-            /// Ignore any spawn in analysis mode
-            Ok(())
-        }));
+            #(#cfgs)*
+            /// Spawns the task directly
+            pub fn spawn(#(#args,)*) -> Result<(), #ty> {
+                /// Ignore any spawn in analysis mode
+                Ok(())
+            }));
+        }
+
+        /// Change spawn for klee-analysis
+        #[cfg(feature = "klee-replay")]
+        {
+            // Spawn caller
+            items.push(quote!(
+
+            #(#all_task_imports)*
+
+            #(#cfgs)*
+            /// Spawns the task directly
+            pub fn spawn(#(#args,)*) -> Result<(), #ty> {
+                Ok(())
+            }));
+        }
 
         // Schedule caller
         for (_, monotonic) in &app.monotonics {
