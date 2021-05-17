@@ -694,36 +694,16 @@ pub fn codegen(
             .expect("RTIC-ICE: interrupt identifer not found")
             .0;
 
-        /// Change spawn for klee-analysis
-        #[cfg(feature = "klee-analysis")]
-        {
-            // Spawn caller
-            items.push(quote!(
+        // Spawn caller
+        items.push(quote!(
 
-            #(#all_task_imports)*
+        #(#all_task_imports)*
 
-            #(#cfgs)*
-            /// Spawns the task directly
-            pub fn spawn(#(#args,)*) -> Result<(), #ty> {
-                /// Ignore any spawn in analysis mode
-                Ok(())
-            }));
-        }
-
-        /// Change spawn for klee-analysis
-        #[cfg(feature = "klee-replay")]
-        {
-            // Spawn caller
-            items.push(quote!(
-
-            #(#all_task_imports)*
-
-            #(#cfgs)*
-            /// Spawns the task directly
-            pub fn spawn(#(#args,)*) -> Result<(), #ty> {
-                Ok(())
-            }));
-        }
+        #(#cfgs)*
+        /// Spawns the task directly
+        pub fn spawn(#(#args,)*) -> Result<(), #ty> {
+            Ok(())
+        }));
 
         // Schedule caller
         for (_, monotonic) in &app.monotonics {
@@ -789,21 +769,7 @@ pub fn codegen(
                 impl SpawnHandle {
                     pub fn cancel(self) -> Result<#ty, ()> {
                         rtic::export::interrupt::free(|_| unsafe {
-                            let tq = &mut *#app_path::#tq.get_mut_unchecked().as_mut_ptr();
-                            if let Some((_task, index)) = tq.cancel_marker(self.marker) {
-                                // Get the message
-                                let msg = #app_path::#inputs
-                                    .get_unchecked()
-                                    .get_unchecked(usize::from(index))
-                                    .as_ptr()
-                                    .read();
-                                // Return the index to the free queue
-                                #app_path::#fq.get_mut_unchecked().split().0.enqueue_unchecked(index);
-
-                                Ok(msg)
-                            } else {
-                                Err(())
-                            }
+                            Ok(())
                         })
                     }
 
@@ -812,19 +778,12 @@ pub fn codegen(
                         where D: rtic::time::duration::Duration + rtic::time::fixed_point::FixedPoint,
                                  D::T: Into<<#app_path::#mono_type as rtic::time::Clock>::T>,
                     {
-                        self.reschedule_at(#app_path::monotonics::#m::now() + duration)
+                        Ok(self)
                     }
 
                     pub fn reschedule_at(self, instant: rtic::time::Instant<#app_path::#mono_type>) -> Result<Self, ()>
                     {
-                        rtic::export::interrupt::free(|_| unsafe {
-                            let marker = *#tq_marker.get_mut_unchecked();
-                            *#tq_marker.get_mut_unchecked() = #tq_marker.get_mut_unchecked().wrapping_add(1);
-
-                            let tq = &mut *#app_path::#tq.get_mut_unchecked().as_mut_ptr();
-
-                            tq.update_marker(self.marker, marker, instant, || #pend).map(|_| SpawnHandle { marker })
-                        })
+                        Ok(self)
                     }
                 }
 
@@ -840,14 +799,7 @@ pub fn codegen(
                     where D: rtic::time::duration::Duration + rtic::time::fixed_point::FixedPoint,
                         D::T: Into<<#app_path::#mono_type as rtic::time::Clock>::T>,
                 {
-
-                    let instant = if rtic::export::interrupt::free(|_| unsafe { #app_path::#m_ident.get_mut_unchecked().is_none() }) {
-                        rtic::time::Instant::new(0)
-                    } else {
-                        #app_path::monotonics::#m::now()
-                    };
-
-                    spawn_at(instant + duration #(,#untupled)*)
+                    Ok(SpawnHandle { marker: 0 } )
                 }
 
                 #(#cfgs)*
@@ -856,46 +808,7 @@ pub fn codegen(
                     instant: rtic::time::Instant<#app_path::#mono_type>
                     #(,#args)*
                 ) -> Result<SpawnHandle, #ty> {
-                    unsafe {
-                        let input = #tupled;
-                        if let Some(index) = rtic::export::interrupt::free(|_| #app_path::#fq.get_mut_unchecked().dequeue()) {
-                            #app_path::#inputs
-                                .get_mut_unchecked()
-                                .get_unchecked_mut(usize::from(index))
-                                .as_mut_ptr()
-                                .write(input);
-
-                            #app_path::#instants
-                                .get_mut_unchecked()
-                                .get_unchecked_mut(usize::from(index))
-                                .as_mut_ptr()
-                                .write(instant);
-
-                            rtic::export::interrupt::free(|_| {
-                                let marker = *#tq_marker.get_mut_unchecked();
-                                let nr = rtic::export::NotReady {
-                                    instant,
-                                    index,
-                                    task: #app_path::#t::#name,
-                                    marker,
-                                };
-
-                                *#tq_marker.get_mut_unchecked() = #tq_marker.get_mut_unchecked().wrapping_add(1);
-
-                                let tq = &mut *#app_path::#tq.get_mut_unchecked().as_mut_ptr();
-
-                                tq.enqueue_unchecked(
-                                    nr,
-                                    || #enable_interrupt,
-                                    || #pend,
-                                    #app_path::#m_ident.get_mut_unchecked().as_mut());
-
-                                Ok(SpawnHandle { marker })
-                            })
-                        } else {
-                            Err(input)
-                        }
-                    }
+                    Ok(SpawnHandle { marker: 0 })
                 }
             }));
         }
