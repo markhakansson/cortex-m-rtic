@@ -14,17 +14,6 @@ pub fn codegen(app: &App, analysis: &Analysis) -> Vec<TokenStream2> {
     let mut match_stmts = vec![];
     let mut task_number: u8 = 0;
     
-    // Add init function
-    // let init_name = &app.inits.first().unwrap().name;
-    // task_list.push(quote!(
-    //     #task_number => {
-    //         let mut core: rtic::export::Peripherals =
-    //             rtic::export::Peripherals::steal().into();
-    //         #app_path::#init_name(#init_name::Context::new(core.into()));
-    //     },
-    // ));
-    // task_number += 1;
-    
     // Hardware tasks. Just call the correct symbol.
     for (name, task) in &app.hardware_tasks {
         let symbol = task.args.binds.clone();
