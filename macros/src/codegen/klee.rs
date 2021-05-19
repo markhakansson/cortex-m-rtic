@@ -84,7 +84,7 @@ pub fn codegen(app: &App) -> Vec<TokenStream2> {
     
     // Insert all tasks inside a match
     match_stmts.push(quote!(
-        match __klee_task_id {
+        match __klee_task_id.get_unchecked() {
             #(#task_list)*
             _ => ()
         }
@@ -92,7 +92,7 @@ pub fn codegen(app: &App) -> Vec<TokenStream2> {
     
     // Finish test harness
     test_harness.push(quote!(
-        klee_make_symbolic(&mut __klee_task_id, "__klee_task_id");
+        klee_make_symbolic(&mut __klee_task_id.get_mut_unchecked(), "__klee_task_id");
         #(#match_stmts)*
     ));
     test_harness
