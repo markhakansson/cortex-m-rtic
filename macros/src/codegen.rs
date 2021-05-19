@@ -484,7 +484,9 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
             #(#mod_app_timer_queue)*
 
             /// Set as a global variable in order to not optimize out the replay harness
-            static mut __klee_task_id: u8 = 0;
+            #[allow(non_upper_case_globals)]
+            #[link_section = ".data.klee"]
+            static __klee_task_id: rtic::RacyCell<u8> = rtic::RacyCell::new(0);
             #(#mains)*
         }
     )
