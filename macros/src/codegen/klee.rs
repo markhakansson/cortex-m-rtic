@@ -28,6 +28,7 @@ pub fn codegen(app: &App) -> Vec<TokenStream2> {
     // Fetch all tasks for KLEE to match
     for (name, task) in &app.hardware_tasks {
         let mut resources = vec![];
+        let priority = task.args.priority;
         for (name, _access) in &task.args.resources {            
             let mangled_name = util::mark_internal_ident(&name);
             let name_as_str: String = mangled_name.to_string();
@@ -48,7 +49,7 @@ pub fn codegen(app: &App) -> Vec<TokenStream2> {
         task_list.push(quote!(
             #task_number => {
                 #(#resources)*
-                #app_path::#name(#name::Context::new(&rtic::export::Priority::new(1)));
+                #app_path::#name(#name::Context::new(&rtic::export::Priority::new(#priority)));
             }
         ));
         task_number += 1;
@@ -56,6 +57,7 @@ pub fn codegen(app: &App) -> Vec<TokenStream2> {
     
     for (name, task) in &app.software_tasks{
         let mut resources = vec![];
+        let priority = task.args.priority;
         for (name, _access) in &task.args.resources {            
             let mangled_name = util::mark_internal_ident(&name);
             let name_as_str: String = mangled_name.to_string();
@@ -76,7 +78,7 @@ pub fn codegen(app: &App) -> Vec<TokenStream2> {
         task_list.push(quote!(
             #task_number => {
                 #(#resources)*
-                #app_path::#name(#name::Context::new(&rtic::export::Priority::new(1)));
+                #app_path::#name(#name::Context::new(&rtic::export::Priority::new(#priority)));
             }
         ));
         task_number += 1;
@@ -92,7 +94,7 @@ pub fn codegen(app: &App) -> Vec<TokenStream2> {
     
     // Finish test harness
     test_harness.push(quote!(
-        klee_make_symbolic(&mut __klee_task_id.get_mut_unchecked(), "__klee_task_id");
+        klee_make_symbolic(__klee_task_id.get_mut_unchecked(), "__klee_task_id");
         #(#match_stmts)*
     ));
     test_harness
