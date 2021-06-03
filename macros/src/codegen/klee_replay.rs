@@ -62,7 +62,7 @@ pub fn codegen(app: &App, analysis: &Analysis) -> Vec<TokenStream2> {
     
     // Insert all tasks inside a match
     match_stmts.push(quote!(
-        match __klee_task_id.get_unchecked() {
+        match __klee_task_id.get_unchecked().as_ptr().read() {
             #(#task_list)*
             _ => ()
         }

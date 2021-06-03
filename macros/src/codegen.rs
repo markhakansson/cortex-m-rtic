@@ -271,6 +271,10 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
         let klee_tasks = klee::codegen(app);
         
         mains.push(quote!(
+            /// Set as a global variable in order to not optimize out the replay harness
+            #[allow(non_upper_case_globals)]
+            #[link_section = ".data.klee"]
+            static __klee_task_id: rtic::RacyCell<u8> = rtic::RacyCell::new(0);
             /// KLEE test harness
             mod rtic_ext {
                 use super::*;
@@ -311,6 +315,10 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
         let replay_tasks = klee_replay::codegen(app, analysis);
 
         mains.push(quote!(
+            /// Set as a global variable in order to not optimize out the replay harness
+            #[allow(non_upper_case_globals)]
+            #[link_section = ".uninit.klee"]
+            static __klee_task_id: rtic::RacyCell<core::mem::MaybeUninit<u8>> = rtic::RacyCell::new(core::mem::MaybeUninit::uninit());
             /// KLEE replay harness
             mod rtic_ext {
                 use cortex_m::asm;
@@ -325,6 +333,8 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
                     core.DCB.enable_trace();
                     core.DWT.enable_cycle_counter();
                     core.DWT.cyccnt.write(0);
+
+                    __klee_task_id.get_mut_unchecked().as_mut_ptr().write_volatile(0);
 
                     #[inline(never)]
                     fn __rtic_init_resources<F>(f: F) where F: FnOnce() {
@@ -483,10 +493,6 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
 
             #(#mod_app_timer_queue)*
 
-            /// Set as a global variable in order to not optimize out the replay harness
-            #[allow(non_upper_case_globals)]
-            #[link_section = ".data.klee"]
-            static __klee_task_id: rtic::RacyCell<u8> = rtic::RacyCell::new(0);
             #(#mains)*
         }
     )
