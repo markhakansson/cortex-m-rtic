@@ -238,10 +238,16 @@ pub fn app(app: &App, analysis: &Analysis, extra: &Extra) -> TokenStream2 {
     // Generate the `main` function
     let assertion_stmts = assertions::codegen(app, analysis);
 
+    #[cfg(feature = "klee-replay")]
     let pre_init_stmts = pre_init::codegen(app, analysis, extra);
 
+    #[cfg(feature = "klee-replay")]
     let (mod_app_init, root_init, user_init, call_init) = init::codegen(app, analysis, extra);
 
+    #[cfg(feature = "klee-analysis")]
+    let (mod_app_init, root_init, user_init, _call_init) = init::codegen(app, analysis, extra);
+
+    #[cfg(feature = "klee-replay")]
     let post_init_stmts = post_init::codegen(app, analysis);
 
     let (mod_app_idle, root_idle, user_idle, _call_idle) = idle::codegen(app, analysis, extra);
