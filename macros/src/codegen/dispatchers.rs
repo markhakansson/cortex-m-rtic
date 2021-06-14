@@ -83,8 +83,6 @@ pub fn codegen(app: &App, analysis: &Analysis, _extra: &Extra) -> Vec<TokenStrea
                     quote!(#name::Locals::new(),)
                 };
 
-                let app_name = &app.name;
-                let app_path = quote! {crate::#app_name};
                 quote!(
                     #(#cfgs)*
                     #t::#name => {
@@ -96,7 +94,7 @@ pub fn codegen(app: &App, analysis: &Analysis, _extra: &Extra) -> Vec<TokenStrea
                             .read();
                         #fq.get_mut_unchecked().split().0.enqueue_unchecked(index);
                         let priority = &rtic::export::Priority::new(PRIORITY);
-                        #app_path::#name(
+                        #name(
                             #locals_new
                             #name::Context::new(priority)
                             #(,#pats)*
@@ -246,7 +244,6 @@ pub fn codegen(app: &App, analysis: &Analysis, _extra: &Extra) -> Vec<TokenStrea
         let doc = format!("Interrupt handler to dispatch tasks at priority {}", level);
         let interrupt = util::suffixed(&interrupts[&level].0.to_string());
         let attribute = &interrupts[&level].1.attrs;
-
         items.push(quote!(
             #[allow(non_snake_case)]
             #[doc = #doc]

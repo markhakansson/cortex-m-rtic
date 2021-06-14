@@ -5,10 +5,7 @@ use rtic_syntax::{ast::App};
 use crate::codegen::util;
 
 /// Generates support code for the KLEE test harness
-pub fn codegen(app: &App) -> Vec<TokenStream2> {
-    let app_name = &app.name;
-    let app_path = quote! {crate::#app_name};
-    
+pub fn codegen(app: &App) -> Vec<TokenStream2> { 
     let mut test_harness = vec![];
     let mut task_list = vec![];
     let mut match_stmts = vec![];
@@ -49,7 +46,7 @@ pub fn codegen(app: &App) -> Vec<TokenStream2> {
         task_list.push(quote!(
             #task_number => {
                 #(#resources)*
-                #app_path::#name(#name::Context::new(&rtic::export::Priority::new(#priority)));
+                #name(#name::Context::new(&rtic::export::Priority::new(#priority)));
             }
         ));
         task_number += 1;
@@ -78,7 +75,7 @@ pub fn codegen(app: &App) -> Vec<TokenStream2> {
         task_list.push(quote!(
             #task_number => {
                 #(#resources)*
-                #app_path::#name(#name::Context::new(&rtic::export::Priority::new(#priority)));
+                #name(#name::Context::new(&rtic::export::Priority::new(#priority)));
             }
         ));
         task_number += 1;

@@ -49,9 +49,9 @@ pub fn codegen(app: &App, analysis: &Analysis) -> Vec<TokenStream2> {
             #task_number => {
                 #[doc = #doc]
                 // Push task to queue
-                if let Some(index) = #app_path::#fq.get_mut_unchecked().dequeue() {
+                if let Some(index) = #fq.get_mut_unchecked().dequeue() {
                     // Enqueue the task
-                    #app_path::#rq.get_mut_unchecked().enqueue_unchecked((#app_path::#t::#task_name, index));
+                    #rq.get_mut_unchecked().enqueue_unchecked((#t::#task_name, index));
                     // Call interrupt directly
                     #interrupt();
                 }

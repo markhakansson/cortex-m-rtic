@@ -9,7 +9,6 @@ use crate::{
 };
 
 #[cfg(not(feature = "klee-analysis"))]
-/// Generates support code for `#[idle]` functions
 pub fn codegen(
     app: &App,
     analysis: &Analysis,
