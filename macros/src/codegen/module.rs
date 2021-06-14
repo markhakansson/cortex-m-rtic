@@ -672,23 +672,23 @@ pub fn codegen(
     if let Context::SoftwareTask(..) = ctxt {
         let spawnee = &app.software_tasks[name];
         let priority = spawnee.args.priority;
-        let t = util::spawn_t_ident(priority);
+        let _t = util::spawn_t_ident(priority);
         let cfgs = &spawnee.cfgs;
         // Store a copy of the task cfgs
         task_cfgs = cfgs.clone();
-        let (args, tupled, untupled, ty) = util::regroup_inputs(&spawnee.inputs);
+        let (args, tupled, _untupled, ty) = util::regroup_inputs(&spawnee.inputs);
         let args = &args;
-        let tupled = &tupled;
+        let _tupled = &tupled;
         let fq = util::fq_ident(name);
-        let fq = util::mark_internal_ident(&fq);
+        let _fq = util::mark_internal_ident(&fq);
         let rq = util::rq_ident(priority);
-        let rq = util::mark_internal_ident(&rq);
+        let _rq = util::mark_internal_ident(&rq);
         let inputs = util::inputs_ident(name);
-        let inputs = util::mark_internal_ident(&inputs);
+        let _inputs = util::mark_internal_ident(&inputs);
 
-        let device = &extra.device;
-        let enum_ = util::interrupt_ident();
-        let interrupt = &analysis
+        let _device = &extra.device;
+        let _enum_ = util::interrupt_ident();
+        let _interrupt = &analysis
             .interrupts
             .get(&priority)
             .expect("RTIC-ICE: interrupt identifer not found")
@@ -708,16 +708,16 @@ pub fn codegen(
         // Schedule caller
         for (_, monotonic) in &app.monotonics {
             let instants = util::monotonic_instants_ident(name, &monotonic.ident);
-            let instants = util::mark_internal_ident(&instants);
+            let _instants = util::mark_internal_ident(&instants);
             let monotonic_name = monotonic.ident.to_string();
 
             let tq = util::tq_ident(&monotonic.ident.to_string());
-            let tq = util::mark_internal_ident(&tq);
+            let _tq = util::mark_internal_ident(&tq);
             let t = util::schedule_t_ident();
             let m = &monotonic.ident;
             let mono_type = &monotonic.ident;
             let m_ident = util::monotonic_ident(&monotonic_name);
-            let m_ident = util::mark_internal_ident(&m_ident);
+            let _m_ident = util::mark_internal_ident(&m_ident);
             let m_isr = &monotonic.args.binds;
             let enum_ = util::interrupt_ident();
 
@@ -727,7 +727,7 @@ pub fn codegen(
                 items.push(quote!(pub use #m::SpawnHandle;));
             }
 
-            let (enable_interrupt, pend) = if &*m_isr.to_string() == "SysTick" {
+            let (_enable_interrupt, _pend) = if &*m_isr.to_string() == "SysTick" {
                 (
                     quote!(core::mem::transmute::<_, cortex_m::peripheral::SYST>(())
                         .enable_interrupt()),
