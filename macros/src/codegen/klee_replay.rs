@@ -6,9 +6,6 @@ use crate::{analyze::Analysis, codegen::util};
 
 /// Generates support code for the KLEE replay harness
 pub fn codegen(app: &App, analysis: &Analysis) -> Vec<TokenStream2> {
-    let app_name = &app.name;
-    let app_path = quote! {crate::#app_name};
-    
     let mut test_harness = vec![];
     let mut task_list = vec![];
     let mut match_stmts = vec![];
