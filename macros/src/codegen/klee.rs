@@ -15,59 +15,63 @@ pub fn codegen(app: &App) -> Vec<TokenStream2> {
     for (name, task) in &app.hardware_tasks {
         let mut resources = vec![];
         let priority = task.args.priority;
-        for (name, _access) in &task.args.resources {            
-            let mangled_name = util::mark_internal_ident(&name);
-            let name_as_str: String = mangled_name.to_string();
+        if task.rauk {
+            for (name, _access) in &task.args.resources {            
+                let mangled_name = util::mark_internal_ident(&name);
+                let name_as_str: String = mangled_name.to_string();
 
-            if app.late_resources.contains_key(name) {
-                resources.push(quote!(
-                    /// Check if LateResource is supported
-                    if late_type_supported(#mangled_name.get_unchecked(), &supported_late_types) {
+                if app.late_resources.contains_key(name) {
+                    resources.push(quote!(
+                        /// Check if LateResource is supported
+                        if late_type_supported(#mangled_name.get_unchecked(), &supported_late_types) {
+                            klee_make_symbolic(#mangled_name.get_mut_unchecked(), #name_as_str);
+                        }
+                    ));
+                } else {
+                    resources.push(quote!(
                         klee_make_symbolic(#mangled_name.get_mut_unchecked(), #name_as_str);
-                    }
-                ));
-            } else {
-                resources.push(quote!(
-                    klee_make_symbolic(#mangled_name.get_mut_unchecked(), #name_as_str);
-                ));
+                    ));
+                }
             }
+            task_list.push(quote!(
+                #task_number => {
+                    #(#resources)*
+                    #name(#name::Context::new(&rtic::export::Priority::new(#priority)));
+                }
+            ));
+            task_number += 1;
         }
-        task_list.push(quote!(
-            #task_number => {
-                #(#resources)*
-                #name(#name::Context::new(&rtic::export::Priority::new(#priority)));
-            }
-        ));
-        task_number += 1;
     }
     
     for (name, task) in &app.software_tasks{
         let mut resources = vec![];
         let priority = task.args.priority;
-        for (name, _access) in &task.args.resources {            
-            let mangled_name = util::mark_internal_ident(&name);
-            let name_as_str: String = mangled_name.to_string();
+        if task.rauk {
+            for (name, _access) in &task.args.resources {            
+                let mangled_name = util::mark_internal_ident(&name);
+                let name_as_str: String = mangled_name.to_string();
 
-            if app.late_resources.contains_key(name) {
-                resources.push(quote!(
-                    /// Check if LateResource is supported
-                    if late_type_supported(#mangled_name.get_unchecked(), &supported_late_types) {
+                if app.late_resources.contains_key(name) {
+                    resources.push(quote!(
+                        /// Check if LateResource is supported
+                        if late_type_supported(#mangled_name.get_unchecked(), &supported_late_types) {
+                            klee_make_symbolic(#mangled_name.get_mut_unchecked(), #name_as_str);
+                        }
+                    ));
+                } else {
+                    resources.push(quote!(
                         klee_make_symbolic(#mangled_name.get_mut_unchecked(), #name_as_str);
-                    }
-                ));
-            } else {
-                resources.push(quote!(
-                    klee_make_symbolic(#mangled_name.get_mut_unchecked(), #name_as_str);
-                ));
+                    ));
+                }
             }
+            task_list.push(quote!(
+                #task_number => {
+                    #(#resources)*
+                    #name(#name::Context::new(&rtic::export::Priority::new(#priority)));
+                }
+            ));
+            task_number += 1;
         }
-        task_list.push(quote!(
-            #task_number => {
-                #(#resources)*
-                #name(#name::Context::new(&rtic::export::Priority::new(#priority)));
-            }
-        ));
-        task_number += 1;
     }
     
     // Insert all tasks inside a match

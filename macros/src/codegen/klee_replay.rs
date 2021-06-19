@@ -16,13 +16,15 @@ pub fn codegen(app: &App, analysis: &Analysis) -> Vec<TokenStream2> {
         let symbol = task.args.binds.clone();
         let doc = format!("{}", name);
 
-        task_list.push(quote!(
-            #task_number => {
-                #[doc = #doc]
-                #symbol();
-            }
-        ));
-        task_number += 1;
+        if task.rauk {
+            task_list.push(quote!(
+                #task_number => {
+                    #[doc = #doc]
+                    #symbol();
+                }
+            ));
+            task_number += 1;
+        }
     }
 
 
@@ -42,19 +44,21 @@ pub fn codegen(app: &App, analysis: &Analysis) -> Vec<TokenStream2> {
 
         let doc = format!("{}", task_name);
 
-        task_list.push(quote!(
-            #task_number => {
-                #[doc = #doc]
-                // Push task to queue
-                if let Some(index) = #fq.get_mut_unchecked().dequeue() {
-                    // Enqueue the task
-                    #rq.get_mut_unchecked().enqueue_unchecked((#t::#task_name, index));
-                    // Call interrupt directly
-                    #interrupt();
+        if task.rauk {
+            task_list.push(quote!(
+                #task_number => {
+                    #[doc = #doc]
+                    // Push task to queue
+                    if let Some(index) = #fq.get_mut_unchecked().dequeue() {
+                        // Enqueue the task
+                        #rq.get_mut_unchecked().enqueue_unchecked((#t::#task_name, index));
+                        // Call interrupt directly
+                        #interrupt();
+                    }
                 }
-            }
-        ));
-        task_number += 1;
+            ));
+            task_number += 1;
+        }
     }
     
     // Insert all tasks inside a match
